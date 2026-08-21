@@ -53,7 +53,6 @@ def get_client(auth_key: str) -> OpenAI:
     return OpenAI(api_key=token, base_url=BASE_URL, http_client=http_client)
 
 
-
 st.set_page_config(page_title="Помощник при разводе", page_icon="assets/mascot.jpg")
 
 st.markdown(
@@ -67,6 +66,16 @@ st.markdown(
     [data-testid="stChatMessage"] {
         border-radius: 16px;
         padding: 6px 10px;
+    }
+    [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {
+        flex-direction: row-reverse;
+        text-align: right;
+        margin-left: 15%;
+        background-color: #E8EEF3;
+    }
+    [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) {
+        margin-right: 15%;
+        background-color: #F0F4F8;
     }
     </style>
     """,
@@ -118,30 +127,49 @@ elif user_input:
         st.markdown(user_input)
 
     with st.chat_message("assistant"):
+        placeholder = st.empty()
+        placeholder.markdown("_печатает..._")
+
         verdict = check_input(user_input)
         if not verdict.allowed:
             answer = REFUSAL_MESSAGE.format(reason=verdict.reason)
-            st.markdown(answer)
+            placeholder.markdown(answer)
             st.session_state.divorce_state["messages"].append(
                 {"role": "assistant", "content": answer}
             )
         else:
             try:
-                result_state = divorce_graph.invoke(
+                answer = ""
+                for msg_chunk, metadata in divorce_graph.stream(
                     {
                         "messages": [{"role": "user", "content": user_input}],
                         "auth_key": auth_key,
                     },
                     config={"configurable": {"thread_id": thread_id}},
-                )
-                st.session_state.divorce_state = result_state
-                answer = _get_content(result_state["messages"][-1])
+                    stream_mode="messages",
+                ):
+                    node_name = metadata.get("langgraph_node")
+                    if node_name in ("ask", "synthesize") and msg_chunk.content:
+                        answer += msg_chunk.content
+                        placeholder.markdown(answer + "▌")
+
+                if not answer.strip():
+                    final_state = divorce_graph.get_state(
+                        {"configurable": {"thread_id": thread_id}}
+                    )
+                    answer = _get_content(final_state.values["messages"][-1])
 
                 out_verdict = check_output(answer)
                 if not out_verdict.allowed:
                     answer = REFUSAL_MESSAGE.format(reason=out_verdict.reason)
 
-                st.markdown(answer)
-            except Exception as e:  # noqa: BLE001
+                placeholder.markdown(answer)
+
+                final_state = divorce_graph.get_state(
+                    {"configurable": {"thread_id": thread_id}}
+                )
+                st.session_state.divorce_state = final_state.values
+
+            except Exception as e:
                 answer = f"Непредвиденная ошибка: {e}"
                 st.error(answer)
