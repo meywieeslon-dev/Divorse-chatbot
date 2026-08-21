@@ -12,3 +12,7 @@ venv/
 .vscode/
 
 main.py
+
+*.db
+*.db-shm
+*.db-wal

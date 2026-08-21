@@ -3,3 +3,4 @@ openai
 requests
 httpx
 python-dotenv
+langgraph-checkpoint-sqlite>=2.0

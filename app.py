@@ -91,16 +91,18 @@ auth_key = os.environ.get("GIGACHAT_AUTH_KEY", "")
 if not auth_key:
     auth_key = st.sidebar.text_input("GigaChat Authorization Key", type="password")
 
+if "thread_id" not in st.query_params:
+    new_thread_id = str(uuid.uuid4())
+    st.query_params["thread_id"] = new_thread_id
+
+thread_id = st.query_params["thread_id"]
+
 if "divorce_state" not in st.session_state:
-    st.session_state.divorce_state = {
-        "messages": [],
-        "has_children": None,
-        "has_property": None,
-        "both_agree": None,
-        "auth_key": auth_key,
-        "greeted": False,
-        "intro_given": False,
-    }
+    existing = divorce_graph.get_state({"configurable": {"thread_id": thread_id}})
+    if existing and existing.values:
+        st.session_state.divorce_state = existing.values
+    else:
+        st.session_state.divorce_state = {"messages": []}
 
 for msg in st.session_state.divorce_state["messages"]:
     with st.chat_message(_get_role(msg)):
@@ -125,8 +127,13 @@ elif user_input:
             )
         else:
             try:
-                st.session_state.divorce_state["auth_key"] = auth_key  # на случай, если ключ изменился
-                result_state = divorce_graph.invoke(st.session_state.divorce_state)
+                result_state = divorce_graph.invoke(
+                    {
+                        "messages": [{"role": "user", "content": user_input}],
+                        "auth_key": auth_key,
+                    },
+                    config={"configurable": {"thread_id": thread_id}},
+                )
                 st.session_state.divorce_state = result_state
                 answer = _get_content(result_state["messages"][-1])
 
