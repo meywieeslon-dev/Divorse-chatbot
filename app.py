@@ -113,16 +113,20 @@ if "divorce_state" not in st.session_state:
     else:
         st.session_state.divorce_state = {"messages": []}
 
-for msg in st.session_state.divorce_state["messages"]:
+for msg in st.session_state.divorce_state.get("messages", []):
     with st.chat_message(_get_role(msg)):
         st.markdown(_get_content(msg))
 
 user_input = st.chat_input("Ваш вопрос про развод...")
 
+backend_url = os.environ.get("BACKEND_URL", "http://127.0.0.1:8000")
+
 if user_input and not auth_key:
     st.error("Не найден ключ GigaChat. Проверьте файл .env")
 elif user_input:
-    st.session_state.divorce_state["messages"].append({"role": "user", "content": user_input})
+    st.session_state.divorce_state.setdefault("messages", []).append(
+        {"role": "user", "content": user_input}
+    )
     with st.chat_message("user"):
         st.markdown(user_input)
 
@@ -140,7 +144,7 @@ elif user_input:
         else:
             try:
                 response = requests.post(
-                    "http://127.0.0.1:8000/chat",
+                    f"{backend_url}/chat",
                     json={
                         "message": user_input,
                         "thread_id": thread_id,
@@ -162,6 +166,6 @@ elif user_input:
                 )
                 st.session_state.divorce_state = final_state.values
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 answer = f"Непредвиденная ошибка: {e}"
                 st.error(answer)

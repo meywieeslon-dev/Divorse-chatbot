@@ -5,6 +5,8 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.checkpoint.sqlite import SqliteSaver
 import sqlite3
+import os
+import time
 
 class DivorceState(TypedDict):
     messages: Annotated[list, add_messages]
@@ -185,7 +187,8 @@ graph_builder.add_edge("greet", END)
 graph_builder.add_conditional_edges("parse", router, {"ask": "ask", "synthesize": "synthesize"})
 graph_builder.add_edge("ask", END)
 graph_builder.add_edge("synthesize", END)
-_conn = sqlite3.connect("divorce_history.db", check_same_thread=False)
+os.makedirs("data", exist_ok=True)
+_conn = sqlite3.connect("data/divorce_history.db", check_same_thread=False)
 checkpointer = SqliteSaver(_conn)
 
 divorce_graph = graph_builder.compile(checkpointer=checkpointer)
