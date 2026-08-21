@@ -4,3 +4,5 @@ requests
 httpx
 python-dotenv
 langgraph-checkpoint-sqlite>=2.0
+fastapi>=0.115
+uvicorn>=0.30

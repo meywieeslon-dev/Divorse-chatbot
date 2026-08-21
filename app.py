@@ -139,25 +139,17 @@ elif user_input:
             )
         else:
             try:
-                answer = ""
-                for msg_chunk, metadata in divorce_graph.stream(
-                    {
-                        "messages": [{"role": "user", "content": user_input}],
+                response = requests.post(
+                    "http://127.0.0.1:8000/chat",
+                    json={
+                        "message": user_input,
+                        "thread_id": thread_id,
                         "auth_key": auth_key,
                     },
-                    config={"configurable": {"thread_id": thread_id}},
-                    stream_mode="messages",
-                ):
-                    node_name = metadata.get("langgraph_node")
-                    if node_name in ("ask", "synthesize") and msg_chunk.content:
-                        answer += msg_chunk.content
-                        placeholder.markdown(answer + "▌")
-
-                if not answer.strip():
-                    final_state = divorce_graph.get_state(
-                        {"configurable": {"thread_id": thread_id}}
-                    )
-                    answer = _get_content(final_state.values["messages"][-1])
+                    timeout=60,
+                )
+                response.raise_for_status()
+                answer = response.json()["answer"]
 
                 out_verdict = check_output(answer)
                 if not out_verdict.allowed:
