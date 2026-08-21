@@ -45,19 +45,24 @@ _HARD_BLOCK_PATTERNS = [
     r"однополы|одного пола|лгбт",
 ]
 
-_ON_TOPIC_HINTS = [
-    "развод", "алимент", "брак", "супруг", "имуществ", "ребен", "ребён",
-    "суд", "загс", "опек", "раздел", "госпошлин", "исков", "семейн",
-    "привет", "здравствуй", "спасибо",
-]
+_ON_TOPIC_PATTERN = re.compile(
+    r"развод|разве[сдл]|алимент|брак|супруг|имуществ|ребен|ребён|"
+    r"загс|опек|раздел|госпошлин|исков|семейн|привет|здравствуй|спасибо",
+)
 
 
 def check_input(text: str) -> Verdict:
     low = text.lower()
     if any(re.search(p, low) for p in _HARD_BLOCK_PATTERNS):
         return Verdict(False, "запрещённая тема")
-    if not any(kw in low for kw in _ON_TOPIC_HINTS):
+
+
+
+    is_short_reply = len(low.split()) <= 4
+
+    if not is_short_reply and not _ON_TOPIC_PATTERN.search(low):
         return Verdict(False, "вопрос не связан с темой развода")
+
     return Verdict(True)
 
 

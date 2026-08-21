@@ -1,6 +1,8 @@
 import os
 import time
 import uuid
+from graph import divorce_graph, _get_content, _get_role
+
 
 import httpx
 import requests
@@ -15,7 +17,7 @@ load_dotenv()
 
 OAUTH_URL = "https://ngw.devices.sberbank.ru:9443/api/v2/oauth"
 BASE_URL = "https://api.giga.chat/v1"
-MODEL = "GigaChat-2"
+MODEL = "GigaChat-3-Ultra"
 
 
 def get_access_token(auth_key: str) -> str:
@@ -89,19 +91,27 @@ auth_key = os.environ.get("GIGACHAT_AUTH_KEY", "")
 if not auth_key:
     auth_key = st.sidebar.text_input("GigaChat Authorization Key", type="password")
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+if "divorce_state" not in st.session_state:
+    st.session_state.divorce_state = {
+        "messages": [],
+        "has_children": None,
+        "has_property": None,
+        "both_agree": None,
+        "auth_key": auth_key,
+        "greeted": False,
+        "intro_given": False,
+    }
 
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+for msg in st.session_state.divorce_state["messages"]:
+    with st.chat_message(_get_role(msg)):
+        st.markdown(_get_content(msg))
 
 user_input = st.chat_input("Ваш вопрос про развод...")
 
 if user_input and not auth_key:
     st.error("Не найден ключ GigaChat. Проверьте файл .env")
 elif user_input:
-    st.session_state.messages.append({"role": "user", "content": user_input})
+    st.session_state.divorce_state["messages"].append({"role": "user", "content": user_input})
     with st.chat_message("user"):
         st.markdown(user_input)
 
@@ -109,17 +119,22 @@ elif user_input:
         verdict = check_input(user_input)
         if not verdict.allowed:
             answer = REFUSAL_MESSAGE.format(reason=verdict.reason)
-        else:
-            client = get_client(auth_key)
-            completion = client.chat.completions.create(
-                model=MODEL,
-                messages=[{"role": "system", "content": SYSTEM_PROMPT}]
-                + st.session_state.messages[-10:],
+            st.markdown(answer)
+            st.session_state.divorce_state["messages"].append(
+                {"role": "assistant", "content": answer}
             )
-            answer = completion.choices[0].message.content
-            out_verdict = check_output(answer)
-            if not out_verdict.allowed:
-                answer = REFUSAL_MESSAGE.format(reason=out_verdict.reason)
-        st.markdown(answer)
+        else:
+            try:
+                st.session_state.divorce_state["auth_key"] = auth_key  # на случай, если ключ изменился
+                result_state = divorce_graph.invoke(st.session_state.divorce_state)
+                st.session_state.divorce_state = result_state
+                answer = _get_content(result_state["messages"][-1])
 
-    st.session_state.messages.append({"role": "assistant", "content": answer})
+                out_verdict = check_output(answer)
+                if not out_verdict.allowed:
+                    answer = REFUSAL_MESSAGE.format(reason=out_verdict.reason)
+
+                st.markdown(answer)
+            except Exception as e:  # noqa: BLE001
+                answer = f"Непредвиденная ошибка: {e}"
+                st.error(answer)
