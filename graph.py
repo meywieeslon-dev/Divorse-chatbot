@@ -8,6 +8,9 @@ import sqlite3
 import os
 import time
 
+GIGACHAT_MODEL = os.environ.get("GIGACHAT_MODEL", "GigaChat-3-Ultra")
+
+
 class DivorceState(TypedDict):
     messages: Annotated[list, add_messages]
     has_children: Optional[bool]
@@ -74,7 +77,7 @@ def ask_next_question(state: DivorceState) -> dict:
     model = GigaChat(
         credentials=auth_key,
         scope="GIGACHAT_API_PERS",
-        model="GigaChat-3-Ultra",
+        model=GIGACHAT_MODEL,
         verify_ssl_certs=False,
         timeout=30,
     )
@@ -116,7 +119,7 @@ def parse_answer(state: DivorceState) -> dict:
     classifier = GigaChat(
         credentials=auth_key,
         scope="GIGACHAT_API_PERS",
-        model="GigaChat-3-Ultra",
+        model=GIGACHAT_MODEL,
         verify_ssl_certs=False,
         timeout=30,
     )
@@ -151,7 +154,7 @@ def synthesize_answer(state: DivorceState) -> dict:
     model = GigaChat(
         credentials=auth_key,
         scope="GIGACHAT_API_PERS",
-        model="GigaChat-3-Ultra",
+        model=GIGACHAT_MODEL,
         verify_ssl_certs=False,
         timeout=30,
     )

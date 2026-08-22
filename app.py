@@ -15,9 +15,9 @@ from guardrails import check_input, check_output, SYSTEM_PROMPT, REFUSAL_MESSAGE
 
 load_dotenv()
 
-OAUTH_URL = "https://ngw.devices.sberbank.ru:9443/api/v2/oauth"
-BASE_URL = "https://api.giga.chat/v1"
-MODEL = "GigaChat-3-Ultra"
+OAUTH_URL = os.environ.get("GIGACHAT_OAUTH_URL", "https://ngw.devices.sberbank.ru:9443/api/v2/oauth")
+BASE_URL = os.environ.get("GIGACHAT_BASE_URL", "https://api.giga.chat/v1")
+MODEL = os.environ.get("GIGACHAT_MODEL", "GigaChat-3-Ultra")
 
 
 def get_access_token(auth_key: str) -> str:
@@ -166,6 +166,6 @@ elif user_input:
                 )
                 st.session_state.divorce_state = final_state.values
 
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 answer = f"Непредвиденная ошибка: {e}"
                 st.error(answer)
