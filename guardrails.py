@@ -45,29 +45,124 @@ _HARD_BLOCK_PATTERNS = [
     r"однополы|одного пола|лгбт",
 ]
 
-_ON_TOPIC_PATTERN = re.compile(
-    r"развод|разве[сдл]|алимент|брак|супруг|имуществ|ребен|ребён|"
-    r"загс|опек|раздел|госпошлин|исков|семейн|привет|здравствуй|спасибо",
+_BREEDING_SENSE = re.compile(
+    r"развод(ить|ят|ишь|им|ите|ил[аи]?)(?!с[яь])"
+    r"|развожу(?!с[яь])"
+    r"|разведени[ея]"
+    r"|разводчик"
 )
+
+_DIVORCE_CONTEXT = re.compile(
+    r"брак|супруг|загс|раздел|имуществ|разошл|алимент"
+    r"|муж|жена|жены|дет[иеья]|ребен|сын|дочь|суд|иск"
+)
+
+_OFF_TOPIC_OBJECT = re.compile(
+    r"кролик|пчел|кур[ыаи]|птиц|скот|коров|коз[ыла]|рыб|собак|кошк|кошек"
+    r"|хомяк|попугай|растени|цвет[ыао]|огород|грядк|саженц|рассад|дрожж"
+)
+
+_ANSWER_LIKE = re.compile(
+    r"^\W*("
+    r"да|нет|неа|ага|угу|конечно|разумеется|наверное|возможно|вроде"
+    r"|не\s*знаю|без\s*поняти"
+    r"|оба|обо[еи]|обоюдн|один|одна|одного|двое|трое|четверо|\d"
+    r"|есть|нету|ничего|никак|только|пока|уже|ещ[её]"
+    r"|против|согласн|за\b"
+    r"|я\b|он\b|она\b|мы\b"
+    r")"
+)
+
+_TOPIC_STEMS = (
+    # сам развод
+    "развод", "развест", "развел", "разойт", "разошл", "расторжен",
+    # алименты и деньги
+    "алимент", "содержан", "выплат", "пособи",
+    # семья и стороны
+    "брак", "супруг", "жена", "жены", "муж", "бывш", "семейн", "сожит",
+    # дети
+    "ребен", "дети", "детей", "детьми", "сын", "дочь", "дочер", "опек",
+    "прожив", "несовершеннолет",
+    # имущество
+    "имуществ", "раздел", "квартир", "машин", "ипотек", "кредит",
+    "недвижим", "нажит", "долев", "собственност", "дач", "гараж",
+    "участок", "земельн", "автомобил", "вклад", "накоплен", "бизнес",
+    # процедура
+    "загс", "суд", "иск", "заявлен", "документ", "пошлин", "фамили",
+    "свидетельств", "брачн", "юрист", "адвокат", "мировое",
+    # вежливость
+    "привет", "здравствуй", "добрый", "спасибо", "помог",
+)
+
+_ON_TOPIC_PATTERN = re.compile("|".join(re.escape(s) for s in _TOPIC_STEMS))
+
+_WORD_SPLIT = re.compile(r"[^а-яa-z0-9]+")
+
+
+def _normalize(text: str) -> str:
+    return text.lower().replace("ё", "е")
+
+
+def _prefix_distance(stem: str, word: str) -> int:
+    previous = list(range(len(word) + 1))
+    for i, stem_char in enumerate(stem, start=1):
+        current = [i]
+        for j, word_char in enumerate(word, start=1):
+            current.append(
+                min(
+                    previous[j] + 1,
+                    current[j - 1] + 1,
+                    previous[j - 1] + (stem_char != word_char),
+                )
+            )
+        previous = current
+    return min(previous)
+
+
+def _allowed_typos(stem: str) -> int:
+    if len(stem) <= 4:
+        return 0
+    if len(stem) <= 6:
+        return 1
+    return 2
+
+
+def _looks_on_topic(text: str) -> bool:
+    if _ON_TOPIC_PATTERN.search(text):
+        return True
+
+    words = [w for w in _WORD_SPLIT.split(text) if len(w) >= 3]
+    for word in words:
+        for stem in _TOPIC_STEMS:
+            budget = _allowed_typos(stem)
+            if budget and _prefix_distance(stem, word) <= budget:
+                return True
+    return False
 
 
 def check_input(text: str) -> Verdict:
-    low = text.lower()
+    low = _normalize(text)
+
     if any(re.search(p, low) for p in _HARD_BLOCK_PATTERNS):
         return Verdict(False, "запрещённая тема")
 
+    on_topic = _looks_on_topic(low)
 
-
-    is_short_reply = len(low.split()) <= 4
-
-    if not is_short_reply and not _ON_TOPIC_PATTERN.search(low):
+    same_root_other_topic = _BREEDING_SENSE.search(low) or _OFF_TOPIC_OBJECT.search(low)
+    if same_root_other_topic and not _DIVORCE_CONTEXT.search(low):
         return Verdict(False, "вопрос не связан с темой развода")
 
-    return Verdict(True)
+    if on_topic:
+        return Verdict(True)
+
+    if len(low.split()) <= 4 and _ANSWER_LIKE.search(low):
+        return Verdict(True)
+
+    return Verdict(False, "вопрос не связан с темой развода")
 
 
 def check_output(text: str) -> Verdict:
-    low = text.lower()
+    low = _normalize(text)
     if any(re.search(p, low) for p in _HARD_BLOCK_PATTERNS):
         return Verdict(False, "ответ затронул запрещённую тему")
     return Verdict(True)
