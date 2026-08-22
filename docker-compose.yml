@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: backend
     ports:
       - "8000:8000"
     env_file:
@@ -16,7 +17,8 @@ services:
   frontend:
     build:
       context: .
-      dockerfile: Dockerfile.streamlit
+      dockerfile: Dockerfile
+      target: frontend
     ports:
       - "8501:8501"
     environment:
