@@ -124,6 +124,7 @@ backend_url = os.environ.get("BACKEND_URL", "http://127.0.0.1:8000")
 if user_input and not auth_key:
     st.error("Не найден ключ GigaChat. Проверьте файл .env")
 elif user_input:
+    in_dialogue = bool(st.session_state.divorce_state.get("messages"))
     st.session_state.divorce_state.setdefault("messages", []).append(
         {"role": "user", "content": user_input}
     )
@@ -134,7 +135,7 @@ elif user_input:
         placeholder = st.empty()
         placeholder.markdown("_печатает..._")
 
-        verdict = check_input(user_input)
+        verdict = check_input(user_input, in_dialogue=in_dialogue)
         if not verdict.allowed:
             answer = REFUSAL_MESSAGE.format(reason=verdict.reason)
             placeholder.markdown(answer)

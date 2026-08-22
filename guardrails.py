@@ -140,22 +140,20 @@ def _looks_on_topic(text: str) -> bool:
     return False
 
 
-def check_input(text: str) -> Verdict:
+def check_input(text: str, in_dialogue: bool = False) -> Verdict:
     low = _normalize(text)
 
     if any(re.search(p, low) for p in _HARD_BLOCK_PATTERNS):
         return Verdict(False, "запрещённая тема")
 
-    on_topic = _looks_on_topic(low)
-
     same_root_other_topic = _BREEDING_SENSE.search(low) or _OFF_TOPIC_OBJECT.search(low)
     if same_root_other_topic and not _DIVORCE_CONTEXT.search(low):
         return Verdict(False, "вопрос не связан с темой развода")
 
-    if on_topic:
+    if _looks_on_topic(low):
         return Verdict(True)
 
-    if len(low.split()) <= 4 and _ANSWER_LIKE.search(low):
+    if in_dialogue or (len(low.split()) <= 4 and _ANSWER_LIKE.search(low)):
         return Verdict(True)
 
     return Verdict(False, "вопрос не связан с темой развода")
